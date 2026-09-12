@@ -1,17 +1,16 @@
-import io
-import base64
-import torch
-import torch.nn.functional as F
-import cv2
-import numpy as np
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from torchvision import transforms, models
-from PIL import Image
+import os
 
-app = FastAPI()
+from src.config import MODEL_PATH
+from src.pipeline.gradcam import WoodDefectDetector
 
-# 🔥 Enable CORS for React
+app = FastAPI(
+    title="Wood Defect Detection & Explainable AI API",
+    description="Real-time defect classification and Grad-CAM visual explanation service."
+)
+
+# Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,83 +19,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Lazy/global model initialization
+detector = None
 
-# Class names
-class_names = ['color', 'combined', 'good', 'hole', 'liquid', 'scratch']
+def get_detector():
+    global detector
+    if detector is None:
+        if not os.path.exists(MODEL_PATH):
+            raise RuntimeError(
+                f"Model checkpoint not found at '{MODEL_PATH}'. Run 'python run_pipeline.py --stage train' first."
+            )
+        detector = WoodDefectDetector()
+    return detector
 
-# Load model
-model = models.resnet18(weights=None)
-model.fc = torch.nn.Linear(model.fc.in_features, len(class_names))
-model.load_state_dict(torch.load("models/wood_classifier.pth", map_location=device))
-model = model.to(device)
-model.eval()
-
-target_layer = model.layer4[-1]
-
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor()
-])
-
-def generate_gradcam(input_tensor):
-    activations = None
-    gradients = None
-
-    def forward_hook(module, input, output):
-        nonlocal activations
-        activations = output
-
-    def backward_hook(module, grad_in, grad_out):
-        nonlocal gradients
-        gradients = grad_out[0]
-
-    handle_fwd = target_layer.register_forward_hook(forward_hook)
-    handle_bwd = target_layer.register_backward_hook(backward_hook)
-
-    output = model(input_tensor)
-    probs = F.softmax(output, dim=1)
-    confidence, pred_class = torch.max(probs, 1)
-
-    model.zero_grad()
-    output[0, pred_class].backward()
-
-    pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
-
-    for i in range(activations.shape[1]):
-        activations[:, i, :, :] *= pooled_gradients[i]
-
-    heatmap = torch.mean(activations, dim=1).squeeze()
-    heatmap = torch.relu(heatmap)
-    heatmap = heatmap.cpu().detach().numpy()
-
-    heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min() + 1e-8)
-    heatmap = cv2.resize(heatmap, (224, 224))
-
-    handle_fwd.remove()
-    handle_bwd.remove()
-
-    return heatmap, class_names[pred_class.item()], float(confidence.item())
-
+@app.get("/health")
+def health_check():
+    return {
+        "status": "online",
+        "model_loaded": detector is not None or os.path.exists(MODEL_PATH)
+    }
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    contents = await file.read()
-    image = Image.open(io.BytesIO(contents)).convert("RGB")
+    try:
+        det = get_detector()
+        contents = await file.read()
+        result = det.predict(contents)
 
-    input_tensor = transform(image).unsqueeze(0).to(device)
-
-    heatmap, predicted_class, confidence = generate_gradcam(input_tensor)
-
-    image_np = np.array(image.resize((224, 224)))
-    heatmap_colored = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
-    overlay = cv2.addWeighted(image_np, 0.6, heatmap_colored, 0.4, 0)
-
-    _, buffer = cv2.imencode(".jpg", overlay)
-    heatmap_base64 = base64.b64encode(buffer).decode("utf-8")
-
-    return {
-        "predicted_class": predicted_class,
-        "confidence": confidence,
-        "heatmap_image": heatmap_base64
-    }
+        return {
+            "predicted_class": result["predicted_class"],
+            "confidence": result["confidence"],
+            "explanation": result["explanation"],
+            "heatmap_image": result["heatmap_image"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

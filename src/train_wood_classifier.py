@@ -5,9 +5,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader
 
-# =========================
-# CONFIG
-# =========================
+
 DATA_DIR = "data/processed/classification"
 BATCH_SIZE = 16
 EPOCHS = 15
@@ -15,9 +13,7 @@ LR = 1e-4
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# =========================
-# TRANSFORMS
-# =========================
+
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor()
@@ -41,9 +37,7 @@ num_classes = len(class_names)
 
 print("Classes:", class_names)
 
-# =========================
-# MODEL
-# =========================
+
 model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
 model.fc = nn.Linear(model.fc.in_features, num_classes)
 model = model.to(device)
@@ -51,9 +45,7 @@ model = model.to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=LR)
 
-# =========================
-# TRAINING LOOP
-# =========================
+
 for epoch in range(EPOCHS):
     model.train()
     running_loss = 0
@@ -102,9 +94,7 @@ for epoch in range(EPOCHS):
           f"Train Acc: {train_acc:.2f}% "
           f"Test Acc: {test_acc:.2f}%")
 
-# =========================
-# SAVE MODEL
-# =========================
+
 os.makedirs("models", exist_ok=True)
 torch.save(model.state_dict(), "models/wood_classifier.pth")
 

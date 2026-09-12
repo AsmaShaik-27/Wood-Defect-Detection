@@ -1,52 +1,89 @@
-# ==============================
-# Python
-# ==============================
+# ==========================================
+# Python & Bytecode
+# ==========================================
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.db
-*.sqlite3
-*.log
-*.env
-venv/
-.env/
-.idea/
-.vscode/
+*.py[cod]
+*$py.class
+*.so
+.Python
 
-# ==============================
-# Models
-# ==============================
+# Virtual Environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+
+# Logs & Databases
+*.log
+*.sqlite3
+*.db
+
+# ==========================================
+# Deep Learning Models & Weights
+# ==========================================
 *.pth
 *.pt
 *.onnx
 *.h5
 *.ckpt
+*.tflite
+*.safetensors
+*.bin
 
-# ==============================
-# Dataset
-# ==============================
-wood/data/
+# ==========================================
+# Datasets & Inspection Outputs
+# ==========================================
 data/
 dataset/
-
-# ==============================
-# Output
-# ==============================
-wood/output/
+datasets/
+wood/data/
+wood/dataset/
 output/
+wood/output/
+temp.jpg
+temp_gradcam.jpg
+*.tmp
 
-# ==============================
-# React / Vite
-# ==============================
+# ==========================================
+# Frontend (Node, Vite, React)
+# ==========================================
 node_modules/
 dist/
-build/
+dist-ssr/
 frontend/node_modules/
 frontend/dist/
+frontend/dist-ssr/
+.vite/
+frontend/.vite/
 
-# ==============================
-# OS Files
-# ==============================
+# NPM/Yarn/PNPM Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# Operating System & IDEs
+# ==========================================
 .DS_Store
 Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# IDEs & Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+PROJECT_DOCUMENTATION.md 
+README.md 
